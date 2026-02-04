@@ -120,68 +120,100 @@
 
         .results {
             margin-top: 30px;
+            overflow-x: auto;
         }
 
-        .result-item {
-            background: #f8f9fa;
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
             border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: all 0.3s;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
 
-        .result-item:hover {
-            background: #e9ecef;
-            transform: translateX(5px);
+        .results-table thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
         }
 
-        .result-info {
-            flex: 1;
+        .results-table th {
+            padding: 15px 20px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.95em;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
         }
 
-        .result-filename {
+        .results-table td {
+            padding: 15px 20px;
+            border-bottom: 1px solid #e9ecef;
+            color: #333;
+        }
+
+        .results-table tbody tr {
+            transition: all 0.2s;
+        }
+
+        .results-table tbody tr:hover {
+            background: #f8f9fa;
+            transform: scale(1.01);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .results-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .filename-cell {
             font-weight: 600;
             color: #333;
-            margin-bottom: 8px;
             word-break: break-all;
+            max-width: 300px;
         }
 
-        .result-crc {
+        .crc-cell {
             font-family: 'Monaco', 'Menlo', monospace;
-            font-size: 1.2em;
+            font-size: 1em;
             color: #667eea;
-            font-weight: 700;
+            font-weight: 600;
+            letter-spacing: 1px;
         }
 
-        .result-size {
-            font-size: 0.9em;
+        .size-cell {
             color: #999;
-            margin-top: 5px;
+            font-size: 0.9em;
         }
 
         .copy-btn {
             background: #667eea;
             color: white;
             border: none;
-            padding: 10px 20px;
+            padding: 8px 16px;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 0.9em;
+            font-size: 0.85em;
             font-weight: 600;
             transition: all 0.3s;
-            margin-left: 10px;
+            white-space: nowrap;
         }
 
         .copy-btn:hover {
             background: #5568d3;
             transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
         }
 
         .copy-btn.copied {
             background: #28a745;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+            font-size: 1.1em;
         }
 
         .text-input-area {
@@ -260,7 +292,7 @@
             text-decoration: underline;
         }
 
-        @media (max-width: 600px) {
+        @media (max-width: 768px) {
             .header h1 {
                 font-size: 1.8em;
             }
@@ -269,15 +301,38 @@
                 padding: 20px;
             }
 
-            .result-item {
-                flex-direction: column;
-                align-items: flex-start;
+            .results-table {
+                font-size: 0.85em;
+            }
+
+            .results-table th,
+            .results-table td {
+                padding: 10px 8px;
+            }
+
+            .filename-cell {
+                max-width: 150px;
             }
 
             .copy-btn {
-                margin-left: 0;
-                margin-top: 10px;
-                width: 100%;
+                padding: 6px 12px;
+                font-size: 0.8em;
+            }
+        }
+
+        @media (max-width: 480px) {
+            /* 在小屏幕上隐藏文件大小列 */
+            .size-column {
+                display: none;
+            }
+
+            .results-table {
+                font-size: 0.75em;
+            }
+
+            .results-table th,
+            .results-table td {
+                padding: 8px 5px;
             }
         }
     </style>
@@ -413,7 +468,23 @@
         // 处理文件
         function processFiles(files) {
             const resultsContainer = document.getElementById('fileResults');
-            resultsContainer.innerHTML = '';
+            
+            // 创建表格结构
+            resultsContainer.innerHTML = `
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th>文件名</th>
+                            <th>CRC16</th>
+                            <th>CRC32</th>
+                            <th class="size-column">大小</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fileResultsBody">
+                    </tbody>
+                </table>
+            `;
 
             // 将 FileList 转换为数组并按文件名自然排序
             const sortedFiles = Array.from(files).sort((a, b) => naturalSort(a.name, b.name));
@@ -444,39 +515,95 @@
 
             // 等待所有文件读取完成后按顺序显示
             Promise.all(promises).then(results => {
+                const tbody = document.getElementById('fileResultsBody');
                 results.forEach(result => {
-                    displayResult(result.name, result.crc16, result.crc32, result.size, 'fileResults');
+                    addTableRow(tbody, result.name, result.crc16, result.crc32, result.size);
                 });
             });
         }
 
-        // 显示结果
+        // 添加表格行
+        function addTableRow(tbody, name, crc16, crc32, size) {
+            const row = document.createElement('tr');
+            
+            const crc16Str = crc16.toString(16).padStart(4, '0').toUpperCase();
+            const crc32Str = crc32.toString(16).padStart(8, '0').toUpperCase();
+            
+            row.innerHTML = `
+                <td class="filename-cell">${name}</td>
+                <td class="crc-cell">${crc16Str}</td>
+                <td class="crc-cell">${crc32Str}</td>
+                <td class="size-cell size-column">${size !== undefined ? formatFileSize(size) : '-'}</td>
+                <td>
+                    <button class="copy-btn" data-name="${name}" data-crc16="${crc16Str}" data-crc32="${crc32Str}">复制</button>
+                </td>
+            `;
+            
+            tbody.appendChild(row);
+            
+            // 添加复制功能
+            const copyBtn = row.querySelector('.copy-btn');
+            copyBtn.addEventListener('click', function() {
+                const text = `${this.dataset.name}\tCRC16: ${this.dataset.crc16}\tCRC32: ${this.dataset.crc32}`;
+                navigator.clipboard.writeText(text).then(() => {
+                    const originalText = this.textContent;
+                    this.textContent = '✓';
+                    this.classList.add('copied');
+                    setTimeout(() => {
+                        this.textContent = originalText;
+                        this.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        }
+
+        // 显示结果（用于文本计算）
         function displayResult(name, crc16, crc32, size, containerId) {
             const resultsContainer = document.getElementById(containerId);
             
-            const resultDiv = document.createElement('div');
-            resultDiv.className = 'result-item';
-            resultDiv.innerHTML = `
-                <div class="result-info">
-                    <div class="result-filename">${name}</div>
-                    <div class="result-crc">CRC16: ${crc16.toString(16).padStart(4, '0').toUpperCase()}</div>
-                    <div class="result-crc">CRC32: ${crc32.toString(16).padStart(8, '0').toUpperCase()}</div>
-                    ${size !== undefined ? `<div class="result-size">大小: ${formatFileSize(size)}</div>` : ''}
-                </div>
-                <div>
-                    <button class="copy-btn" data-crc16="${crc16.toString(16).padStart(4, '0')}" data-crc32="${crc32.toString(16).padStart(8, '0')}">复制</button>
-                </div>
+            // 创建表格结构（如果不存在）
+            if (!resultsContainer.querySelector('.results-table')) {
+                resultsContainer.innerHTML = `
+                    <table class="results-table">
+                        <thead>
+                            <tr>
+                                <th>名称</th>
+                                <th>CRC16</th>
+                                <th>CRC32</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="${containerId}Body">
+                        </tbody>
+                    </table>
+                `;
+            }
+            
+            const tbody = document.getElementById(`${containerId}Body`);
+            tbody.innerHTML = ''; // 清空之前的结果
+            
+            const crc16Str = crc16.toString(16).padStart(4, '0').toUpperCase();
+            const crc32Str = crc32.toString(16).padStart(8, '0').toUpperCase();
+            
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td class="filename-cell">${name}</td>
+                <td class="crc-cell">${crc16Str}</td>
+                <td class="crc-cell">${crc32Str}</td>
+                <td>
+                    <button class="copy-btn" data-crc16="${crc16Str}" data-crc32="${crc32Str}">复制</button>
+                </td>
             `;
             
-            resultsContainer.appendChild(resultDiv);
+            tbody.appendChild(row);
             
             // 添加复制功能
-            const copyBtn = resultDiv.querySelector('.copy-btn');
+            const copyBtn = row.querySelector('.copy-btn');
             copyBtn.addEventListener('click', function() {
-                const text = `CRC16: ${this.dataset.crc16}\nCRC32: ${this.dataset.crc32}`;
+                const text = `CRC16: ${this.dataset.crc16}\tCRC32: ${this.dataset.crc32}`;
                 navigator.clipboard.writeText(text).then(() => {
                     const originalText = this.textContent;
-                    this.textContent = '已复制!';
+                    this.textContent = '✓';
                     this.classList.add('copied');
                     setTimeout(() => {
                         this.textContent = originalText;
