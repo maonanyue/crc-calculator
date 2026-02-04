@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRC 计算器 - CRC16 & CRC32</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .tab {
+            padding: 15px 30px;
+            background: none;
+            border: none;
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+        }
+
+        .tab:hover {
+            color: #667eea;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .upload-area {
+            border: 3px dashed #ccc;
+            border-radius: 12px;
+            padding: 60px 40px;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+            background: #fafafa;
+        }
+
+        .upload-area:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #667eea;
+            background: #e8f0ff;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+
+        .upload-text {
+            font-size: 1.2em;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            font-size: 0.9em;
+            color: #999;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .results {
+            margin-top: 30px;
+        }
+
+        .result-item {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+        }
+
+        .result-item:hover {
+            background: #e9ecef;
+            transform: translateX(5px);
+        }
+
+        .result-info {
+            flex: 1;
+        }
+
+        .result-filename {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            word-break: break-all;
+        }
+
+        .result-crc {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 1.2em;
+            color: #667eea;
+            font-weight: 700;
+        }
+
+        .result-size {
+            font-size: 0.9em;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        .copy-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin-left: 10px;
+        }
+
+        .copy-btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        .copy-btn.copied {
+            background: #28a745;
+        }
+
+        .text-input-area {
+            margin-top: 30px;
+        }
+
+        .text-input-area textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            font-family: 'Monaco', 'Menlo', monospace;
+            resize: vertical;
+            transition: border-color 0.3s;
+        }
+
+        .text-input-area textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .calculate-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: 600;
+            margin-top: 15px;
+            transition: all 0.3s;
+            display: block;
+            width: 100%;
+        }
+
+        .calculate-btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .clear-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 600;
+            margin-top: 15px;
+            transition: all 0.3s;
+        }
+
+        .clear-btn:hover {
+            background: #c82333;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+            font-size: 0.9em;
+        }
+
+        .github-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .github-link:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 600px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .content {
+                padding: 20px;
+            }
+
+            .result-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .copy-btn {
+                margin-left: 0;
+                margin-top: 10px;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 CRC 计算器</h1>
+            <p>在线计算文件或文本的 CRC16 和 CRC32 校验值</p>
+        </div>
+
+        <div class="content">
+            <div class="tabs">
+                <button class="tab active" data-tab="file">文件计算</button>
+                <button class="tab" data-tab="text">文本计算</button>
+            </div>
+
+            <div id="file-tab" class="tab-content">
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">📁</div>
+                    <div class="upload-text">拖放文件到这里或点击选择文件</div>
+                    <div class="upload-hint">支持同时计算多个文件</div>
+                    <input type="file" id="fileInput" multiple>
+                </div>
+
+                <div class="results" id="fileResults"></div>
+            </div>
+
+            <div id="text-tab" class="tab-content" style="display: none;">
+                <div class="text-input-area">
+                    <textarea id="textInput" placeholder="输入要计算 CRC 的文本内容..."></textarea>
+                    <button class="calculate-btn" id="calculateTextBtn">计算 CRC</button>
+                </div>
+
+                <div class="results" id="textResults"></div>
+            </div>
+        </div>
+
+        <div class="footer">
+            Made with ❤️ | <a href="https://github.com" class="github-link" target="_blank">GitHub</a>
+        </div>
+    </div>
+
+    <script>
+        // CRC16 算法实现（与 Python 脚本相同的算法）
+        function calculateCRC16(data) {
+            let crc = 0xffff;
+            
+            for (let i = 0; i < data.length; i++) {
+                crc = ((0xff00 & crc) >> 8) | ((0xff & crc) << 8);
+                crc = crc ^ (0xff & data[i]);
+                crc = crc ^ ((crc & 0xff) >> 4);
+                crc = crc ^ (0xffff & ((crc << 8) << 4));
+                crc = crc ^ (((crc & 0xff) << 4) << 1);
+                crc = crc & 0xffff;
+            }
+            
+            return crc;
+        }
+
+        // CRC32 算法实现
+        function calculateCRC32(data) {
+            const crcTable = makeCRCTable();
+            let crc = 0xffffffff;
+            
+            for (let i = 0; i < data.length; i++) {
+                crc = (crc >>> 8) ^ crcTable[(crc ^ data[i]) & 0xff];
+            }
+            
+            return (crc ^ 0xffffffff) >>> 0;
+        }
+
+        function makeCRCTable() {
+            let c;
+            const crcTable = [];
+            
+            for (let n = 0; n < 256; n++) {
+                c = n;
+                for (let k = 0; k < 8; k++) {
+                    c = ((c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1));
+                }
+                crcTable[n] = c;
+            }
+            
+            return crcTable;
+        }
+
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        // 处理文件
+        function processFiles(files) {
+            const resultsContainer = document.getElementById('fileResults');
+            resultsContainer.innerHTML = '';
+
+            Array.from(files).forEach(file => {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    const arrayBuffer = e.target.result;
+                    const uint8Array = new Uint8Array(arrayBuffer);
+                    
+                    const crc16 = calculateCRC16(uint8Array);
+                    const crc32 = calculateCRC32(uint8Array);
+                    
+                    displayResult(file.name, crc16, crc32, file.size, 'fileResults');
+                };
+                
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        // 显示结果
+        function displayResult(name, crc16, crc32, size, containerId) {
+            const resultsContainer = document.getElementById(containerId);
+            
+            const resultDiv = document.createElement('div');
+            resultDiv.className = 'result-item';
+            resultDiv.innerHTML = `
+                <div class="result-info">
+                    <div class="result-filename">${name}</div>
+                    <div class="result-crc">CRC16: ${crc16.toString(16).padStart(4, '0').toUpperCase()}</div>
+                    <div class="result-crc">CRC32: ${crc32.toString(16).padStart(8, '0').toUpperCase()}</div>
+                    ${size !== undefined ? `<div class="result-size">大小: ${formatFileSize(size)}</div>` : ''}
+                </div>
+                <div>
+                    <button class="copy-btn" data-crc16="${crc16.toString(16).padStart(4, '0')}" data-crc32="${crc32.toString(16).padStart(8, '0')}">复制</button>
+                </div>
+            `;
+            
+            resultsContainer.appendChild(resultDiv);
+            
+            // 添加复制功能
+            const copyBtn = resultDiv.querySelector('.copy-btn');
+            copyBtn.addEventListener('click', function() {
+                const text = `CRC16: ${this.dataset.crc16}\nCRC32: ${this.dataset.crc32}`;
+                navigator.clipboard.writeText(text).then(() => {
+                    const originalText = this.textContent;
+                    this.textContent = '已复制!';
+                    this.classList.add('copied');
+                    setTimeout(() => {
+                        this.textContent = originalText;
+                        this.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        }
+
+        // 标签切换
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+                
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.style.display = 'none';
+                });
+                
+                const tabName = this.dataset.tab;
+                document.getElementById(`${tabName}-tab`).style.display = 'block';
+            });
+        });
+
+        // 文件上传区域
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                processFiles(files);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const files = e.target.files;
+            if (files.length > 0) {
+                processFiles(files);
+            }
+        });
+
+        // 文本计算
+        document.getElementById('calculateTextBtn').addEventListener('click', function() {
+            const text = document.getElementById('textInput').value;
+            
+            if (!text) {
+                alert('请输入文本内容');
+                return;
+            }
+            
+            const encoder = new TextEncoder();
+            const uint8Array = encoder.encode(text);
+            
+            const crc16 = calculateCRC16(uint8Array);
+            const crc32 = calculateCRC32(uint8Array);
+            
+            const resultsContainer = document.getElementById('textResults');
+            resultsContainer.innerHTML = '';
+            displayResult('文本内容', crc16, crc32, undefined, 'textResults');
+        });
+    </script>
+</body>
+</html>
