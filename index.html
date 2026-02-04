@@ -374,25 +374,79 @@
             return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
         }
 
+        // 自然排序函数（类似 sort -n）
+        function naturalSort(a, b) {
+            const regex = /(\d+)|(\D+)/g;
+            const aParts = a.match(regex);
+            const bParts = b.match(regex);
+            
+            if (!aParts || !bParts) {
+                return a.localeCompare(b);
+            }
+            
+            const len = Math.min(aParts.length, bParts.length);
+            
+            for (let i = 0; i < len; i++) {
+                const aPart = aParts[i];
+                const bPart = bParts[i];
+                
+                const aNum = parseInt(aPart);
+                const bNum = parseInt(bPart);
+                
+                // 如果都是数字，按数字大小比较
+                if (!isNaN(aNum) && !isNaN(bNum)) {
+                    if (aNum !== bNum) {
+                        return aNum - bNum;
+                    }
+                } else {
+                    // 否则按字符串比较
+                    const cmp = aPart.localeCompare(bPart);
+                    if (cmp !== 0) {
+                        return cmp;
+                    }
+                }
+            }
+            
+            return aParts.length - bParts.length;
+        }
+
         // 处理文件
         function processFiles(files) {
             const resultsContainer = document.getElementById('fileResults');
             resultsContainer.innerHTML = '';
 
-            Array.from(files).forEach(file => {
-                const reader = new FileReader();
-                
-                reader.onload = function(e) {
-                    const arrayBuffer = e.target.result;
-                    const uint8Array = new Uint8Array(arrayBuffer);
+            // 将 FileList 转换为数组并按文件名自然排序
+            const sortedFiles = Array.from(files).sort((a, b) => naturalSort(a.name, b.name));
+
+            // 使用 Promise 确保按顺序显示结果
+            const promises = sortedFiles.map(file => {
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
                     
-                    const crc16 = calculateCRC16(uint8Array);
-                    const crc32 = calculateCRC32(uint8Array);
+                    reader.onload = function(e) {
+                        const arrayBuffer = e.target.result;
+                        const uint8Array = new Uint8Array(arrayBuffer);
+                        
+                        const crc16 = calculateCRC16(uint8Array);
+                        const crc32 = calculateCRC32(uint8Array);
+                        
+                        resolve({
+                            name: file.name,
+                            crc16: crc16,
+                            crc32: crc32,
+                            size: file.size
+                        });
+                    };
                     
-                    displayResult(file.name, crc16, crc32, file.size, 'fileResults');
-                };
-                
-                reader.readAsArrayBuffer(file);
+                    reader.readAsArrayBuffer(file);
+                });
+            });
+
+            // 等待所有文件读取完成后按顺序显示
+            Promise.all(promises).then(results => {
+                results.forEach(result => {
+                    displayResult(result.name, result.crc16, result.crc32, result.size, 'fileResults');
+                });
             });
         }
 
